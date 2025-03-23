@@ -4,6 +4,7 @@ from flask import current_app
 from simulation.critic import get_score
 import uuid
 
+
 # ==============================================================================================#
 #                                           ⛔NOTE⛔                                            #
 # In this file almost every class has two methods:                                              #
@@ -316,6 +317,40 @@ class Chat(db.Model):
     def __repr__(self):
         return f"<Chat {self.id}>"
 
+    def update_missing_critic_scores(self):
+        """
+        Finds assistant messages without a critic score and updates them asynchronously.
+        Enhanced to support regeneration of low-scored responses.
+        """
+        missing_scores = (
+            db.session.query(AssistantMessage)
+            .join(Message)
+            .filter(
+                Message.chat_id == self.id,
+                AssistantMessage.critic_score.is_(None),
+                AssistantMessage.is_updating.is_(False),
+            )
+            .all()
+        )
+
+        if not missing_scores:
+            return
+
+        app_ctx = current_app._get_current_object().app_context()
+        conversation_history = self.get_conversation_history()
+        search_history = self.get_search_history()
+
+        for msg in missing_scores:
+            msg.mark_as_updating()
+            history_copy = conversation_history.copy()
+            
+            # We need to modify the run_update_critic_score function to handle regeneration
+            # We'll define this function below
+            threading.Thread(
+                target=run_update_critic_score_with_regen,
+                args=(app_ctx, msg.id, history_copy, search_history),
+            ).start()
+
 
 class Message(db.Model):
     """
@@ -575,3 +610,113 @@ class UserMessage(db.Model):
             "content": self.content,
             "role": "user",
         }
+
+def run_update_critic_score_with_regen(app_context, assistant_msg_id, conversation_history, search_history):
+    """
+    Runs in a background thread: computes the critic score and updates the AssistantMessage.
+    Also handles regeneration if the score is low.
+    """
+    import json
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    from simulation.critic import get_score, regenerate_response
+    
+    with app_context:
+        try:
+            # Get the original message
+            assistant_msg = db.session.get(AssistantMessage, assistant_msg_id)
+            if not assistant_msg:
+                logger.error(f"AssistantMessage {assistant_msg_id} not found")
+                return
+                
+            # Get the critic score
+            critique = get_score(conversation_history, search_history)
+            
+            # Check if we got a score or a full critique object
+            if isinstance(critique, dict):
+                score = critique.get("total_score")
+                # Store the score in the critic_score field
+                assistant_msg.critic_score = score
+                
+                # Store the full critique in the search_output field if it's empty
+                if not assistant_msg.search_output:
+                    assistant_msg.search_output = json.dumps({"critique": critique})
+                elif assistant_msg.search_output:
+                    # Update existing search_output to include critique
+                    try:
+                        search_data = json.loads(assistant_msg.search_output)
+                        search_data["critique"] = critique
+                        assistant_msg.search_output = json.dumps(search_data)
+                    except:
+                        # If we can't parse the JSON, just overwrite it
+                        assistant_msg.search_output = json.dumps({"critique": critique})
+                
+                # Regenerate if score is low (≤ 8.5)
+                if score is not None and score <= 8.5:
+                    logger.info(f"Low score ({score}) for message {assistant_msg_id}, regenerating...")
+                    
+                    # Get the last message from conversation_history
+                    last_response = assistant_msg.content
+                    
+                    # Regenerate the response
+                    regenerated_content = regenerate_response(
+                        conversation_history, last_response, critique
+                    )
+                    
+                    if regenerated_content:
+                        # Store regenerated content in search_output
+                        try:
+                            search_data = json.loads(assistant_msg.search_output)
+                            search_data["regenerated_content"] = regenerated_content
+                            assistant_msg.search_output = json.dumps(search_data)
+                        except:
+                            # If we can't parse the JSON, create a new one
+                            assistant_msg.search_output = json.dumps({
+                                "critique": critique,
+                                "regenerated_content": regenerated_content
+                            })
+                        
+                        # Get critique for regenerated content
+                        regen_conversation = conversation_history.copy()
+                        regen_conversation.append({"role": "assistant", "content": regenerated_content})
+                        regen_critique = get_score(regen_conversation, search_history)
+                        
+                        if isinstance(regen_critique, dict):
+                            # Store regenerated critique
+                            try:
+                                search_data = json.loads(assistant_msg.search_output)
+                                search_data["regenerated_critique"] = regen_critique
+                                assistant_msg.search_output = json.dumps(search_data)
+                            except:
+                                # If we can't parse the JSON, create a new one
+                                assistant_msg.search_output = json.dumps({
+                                    "critique": critique,
+                                    "regenerated_content": regenerated_content,
+                                    "regenerated_critique": regen_critique
+                                })
+            else:
+                # Simple numeric score
+                assistant_msg.critic_score = critique
+            
+            assistant_msg.is_updating = False
+            db.session.commit()
+            
+        except Exception as e:
+            import traceback
+            error_msg = f"Error in run_update_critic_score_with_regen: {str(e)}\n{traceback.format_exc()}"
+            print(error_msg)
+            
+            with open("logs/critic_error.log", "a") as f:
+                f.write(f"{error_msg}\n\n")
+                
+            db.session.rollback()
+            
+            # Mark the message as not updating
+            try:
+                assistant_msg = db.session.get(AssistantMessage, assistant_msg_id)
+                if assistant_msg:
+                    assistant_msg.is_updating = False
+                    db.session.commit()
+            except:
+                pass

@@ -82,3 +82,67 @@ button a {
     font-size: 1rem;
     color: #374151; /* Text color */
 }
+
+/* Processing Steps Display */
+.processing-steps {
+    align-self: stretch;
+    background-color: #f9f9f9;
+    border: 1px dashed #ccc;
+    margin: 1rem 0;
+    border-radius: 8px;
+}
+
+.processing-steps h3 {
+    color: #333;
+    border-bottom: 1px solid #ddd;
+    padding-bottom: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.processing-steps h4 {
+    color: #555;
+    margin-top: 0.5rem;
+}
+
+.processing-steps pre {
+    max-height: 300px;
+    white-space: pre-wrap;
+}
+
+.processing-steps button {
+    background-color: #6c63ff;
+    color: white;
+    border: none;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    margin-bottom: 0.5rem;
+}
+
+.processing-steps button:hover {
+    background-color: #5a52d5;
+}
+/* Critique and Regeneration Display */
+.critique-container {
+    align-self: stretch;
+    background-color: #f9f9f9;
+    border: 1px solid #ddd;
+    margin: 1rem 0;
+    border-radius: 8px;
+}
+
+.critique-container h3 {
+    color: #333;
+    border-bottom: 1px solid #ddd;
+    padding-bottom: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.critique-container button {
+    transition: background-color 0.2s;
+}
+
+.critique-container button:hover {
+    opacity: 0.9;
+}

@@ -1,5 +1,5 @@
 from .. import chat_blueprint
-from flask import jsonify, request, session, redirect, url_for, render_template
+from flask import jsonify, request, session, redirect, url_for, render_template , current_app
 from models import db
 from models.models import User, Chat, Message
 from .helpers import (
@@ -8,7 +8,8 @@ from .helpers import (
     generate_and_store_assistant_message,
     maybe_generate_second_assistant_message,
 )
-
+from models.models import User, Chat, Message, AssistantMessage, UserMessage, db
+import threading
 
 # ==================================================================================================#
 #                                          ⛔NOTE⛔                                                 #
@@ -237,24 +238,8 @@ def disable_second_assistant(chat_id):
 @chat_blueprint.route("/chat", methods=["POST"])
 def chat():
     """
-    Handles chat interactions by performing a series of operations:
-    1. Authenticates the user by verifying that 'username' is present in the session.
-    2. Retrieves the authenticated user from the database.
-    3. Retrieves an existing chat or creates a new one based on the provided 'chat_id' in the JSON payload.
-    4. Validates the presence of user input in the JSON payload.
-    5. Creates a new message entry for the user.
-    6. Generates and stores the first assistant response based on a predefined primary prompt and search prompt.
-    7. Optionally generates a second assistant response if the chat configuration allows it.
-    8. Dumps and augments the message data with the chat id, then triggers asynchronous updates for missing critic scores.
-    Returns:
-        A Flask JSON response containing:
-            - The dumped message data along with the associated chat id upon success, with an HTTP status code 200.
-            - An error message with an appropriate HTTP status code in case of issues (401 for unauthorized, 404 if user/chat not found or input missing, 403 for forbidden actions).
-    Note:
-        This function relies on several helper functions (e.g., retrieve_or_create_chat, create_user_message,
-        generate_and_store_assistant_message, maybe_generate_second_assistant_message) and expects request data to be in JSON format.
+    Handles chat interactions with immediate response and background processing.
     """
-
     print("[DEBUG] Chat route accessed")
     # 1) User authentication
     if "username" not in session:
@@ -276,34 +261,31 @@ def chat():
 
     # 4) Create a user message
     message = create_user_message(chat, user_input)
-
-    # 5) Generate the first assistant response
-    generate_and_store_assistant_message(
-        chat,
-        message,
-        base_prompt_path="./prompts/actor.md",
-        search_prompt_path="./prompts/search_simulator.md",
-    )
-
-    # 6) If second assistant is enabled, generate a second assistant response
-    if chat.allow_second_assistant:
-        maybe_generate_second_assistant_message(
-            chat,
-            message,
-            base_prompt_path="./prompts/actor.md",
-            search_prompt_path="./prompts/search_simulator.md",
+    
+    # 5) Return IMMEDIATELY with the messageId that will be used for polling
+    data = {
+        "chat_id": chat.id,
+        "message_id": message.id,
+        "user_message": message.user_message.dump() if message.user_message else None,
+        "status": "processing_started"
+    }
+    
+    # 6) Start background processing thread with application context
+    app_context = current_app._get_current_object().app_context()
+    thread = threading.Thread(
+        target=process_message_async,
+        args=(
+            app_context,
+            chat.id,
+            message.id,
+            "./prompts/actor.md",
+            "./prompts/search_simulator.md",
         )
+    )
+    thread.daemon = True
+    thread.start()
 
-    # 7) Dump message data
-    data = message.dump()
-    data["chat_id"] = chat.id
-
-    # 8) Update chat critic scores (asynchronous triggers)
-    chat.update_missing_critic_scores()
-
-    print(data)
     return jsonify(data), 200
-
 
 @chat_blueprint.route(
     "/chat/<string:chat_id>/message/<string:message_id>/prefer", methods=["POST"]
@@ -376,3 +358,268 @@ def prefer_message(chat_id, message_id):
         ),
         200,
     )
+
+@chat_blueprint.route("/chat/message/<string:message_id>")
+def get_message(message_id):
+    """
+    Retrieve details for a specific message.
+    """
+    from models.models import AssistantMessage
+    
+    if "username" not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    # Get the message
+    assistant_msg = AssistantMessage.query.filter_by(id=message_id).first()
+    if not assistant_msg:
+        return jsonify({"error": "Message not found"}), 404
+    
+    # Return the message details
+    return jsonify(assistant_msg.dump()), 200
+
+def process_message_async(app_context, chat_id, message_id, base_prompt_path, search_prompt_path):
+    """
+    Process a message asynchronously with Flask application context.
+    
+    Executes the entire processing pipeline:
+    1. Named Entity Recognition (NER)
+    2. Search processing if needed
+    3. Assistant response generation
+    4. Updates processing status at each step
+    
+    Args:
+        app_context: Flask application context
+        chat_id: ID of the chat
+        message_id: ID of the message to process
+        base_prompt_path: Path to the actor prompt template
+        search_prompt_path: Path to the search simulator prompt
+    """
+    import json
+    import traceback
+    from together import Together
+    from models.models import Chat, Message, AssistantMessage, db
+    from blueprints.chat.helpers import (
+        extract_ner_from_conversation,
+        process_search_call,
+        process_search_simulation,
+        process_search_results,
+        extract_thinking,
+        extract_function_calls
+    )
+    
+    with app_context:
+        try:
+            # Get the chat and message objects
+            chat = db.session.get(Chat, chat_id)
+            message = db.session.get(Message, message_id)
+            
+            if not chat or not message:
+                print(f"Error: Chat {chat_id} or Message {message_id} not found")
+                return
+            
+            # Create initial assistant message
+            assistant_msg = AssistantMessage(
+                message_id=message.id,
+                content="Processing your request...",
+                output_number=1,
+                is_updating=True
+            )
+            db.session.add(assistant_msg)
+            db.session.commit()
+            
+            # Store processing status
+            def update_status(status, data=None):
+                """Update the processing status and data"""
+                status_data = {"status": status}
+                if data:
+                    status_data.update(data)
+                    
+                try:
+                    assistant_msg.search_output = json.dumps(status_data)
+                    db.session.commit()
+                except Exception as e:
+                    print(f"Error updating status: {e}")
+            
+            # Initialize data storage
+            processing_data = {}
+            
+            # Step 1: Named Entity Recognition
+            update_status("ner_started")
+            conversation_history = chat.get_conversation_history()
+            search_history = chat.get_search_history()
+            
+            try:
+                preferences = extract_ner_from_conversation(conversation_history)
+                processing_data["ner_results"] = preferences
+                update_status("ner_completed", processing_data)
+            except Exception as e:
+                print(f"Error in NER extraction: {e}")
+                processing_data["ner_error"] = str(e)
+                update_status("ner_error", processing_data)
+            
+            # Step 2: Search Processing
+            search_record = None
+            if processing_data.get("ner_results"):
+                update_status("search_started", processing_data)
+                
+                try:
+                    search_call_result = process_search_call(processing_data["ner_results"])
+                    if search_call_result:
+                        processing_data["search_call"] = search_call_result
+                        update_status("search_call_completed", processing_data)
+                        
+                        search_record = process_search_simulation(search_call_result, conversation_history)
+                        if search_record:
+                            show, search_text = process_search_results(search_record)
+                            search_record["show_results_to_actor"] = show
+                            processing_data["search_results"] = search_record
+                            
+                        update_status("search_completed", processing_data)
+                except Exception as e:
+                    print(f"Error in search processing: {e}")
+                    processing_data["search_error"] = str(e)
+                    update_status("search_error", processing_data)
+            
+            # Step 3: Generate Assistant Response
+            update_status("generating_response", processing_data)
+            
+            try:
+                # Read the prompt template
+                with open(base_prompt_path, "r") as file:
+                    prompt = file.read()
+                
+                # Format the prompt with conversation history and search results
+                num_matches = search_record.get("num_matches", "") if search_record else ""
+                search_results_text = ""
+                
+                if search_record and search_record.get("show_results_to_actor"):
+                    search_results_text = search_record.get("results", "")
+                
+                updated_prompt = (
+                    prompt
+                    .replace("{conv}", json.dumps(conversation_history, ensure_ascii=False, indent=2))
+                    .replace("{search}", search_results_text)
+                    .replace("{num_matches}", str(num_matches))
+                )
+                
+                # Log the assistant prompt
+                with open("logs/assistant_prompt.log", "a+") as file:
+                    file.write(f"{updated_prompt}\n")
+                    file.write("-" * 50 + "\n" * 5)
+                
+                # Generate the assistant response
+                try:
+                    client = Together(api_key='a923ff51a697d6812f846b69aea86466853cceaf95c8ab2dfc84de07cce6ffe1')
+                    completion = client.chat.completions.create(
+                        model="deepseek-ai/DeepSeek-R1",
+                        messages=[
+                            {
+                                "role": "user",
+                                "content": updated_prompt,
+                            }
+                        ],
+                        seed=1,
+                        temperature=0.6,
+                    )
+                    
+                    response_content = completion.choices[0].message.content
+                    
+                    # Extract thinking and clean the response
+                    thinking, response_after_thinking = extract_thinking(response_content)
+                    clean_response, _ = extract_function_calls(response_after_thinking)
+                    
+                    # Use the clean response if available, otherwise use the full response
+                    final_response = clean_response if clean_response.strip() else response_after_thinking
+                    
+                    # Add thinking to processing data
+                    if thinking:
+                        processing_data["thinking"] = thinking
+                    
+                except Exception as e:
+                    print(f"Error generating assistant response: {e}")
+                    processing_data["response_error"] = str(e)
+                    final_response = "I'm sorry, I encountered an error while processing your request."
+                
+                # Save the final response
+                assistant_msg.content = final_response
+                processing_data["status"] = "response_generated"
+                assistant_msg.search_output = json.dumps(processing_data)
+                assistant_msg.is_updating = False
+                db.session.commit()
+                
+                # Trigger asynchronous critic evaluation
+                chat.update_missing_critic_scores()
+                
+            except Exception as e:
+                print(f"Error in assistant response generation: {e}")
+                processing_data["response_error"] = str(e)
+                update_status("response_error", processing_data)
+                
+                # Set a fallback response
+                assistant_msg.content = "I'm sorry, I encountered an error while processing your request."
+                assistant_msg.is_updating = False
+                db.session.commit()
+            
+        except Exception as e:
+            # Global error handler
+            error_msg = f"Error in process_message_async: {str(e)}\n{traceback.format_exc()}"
+            print(error_msg)
+            
+            with open("logs/process_error.log", "a") as file:
+                file.write(f"{error_msg}\n")
+                file.write("-" * 50 + "\n" * 5)
+            
+            # Try to save the error state
+            try:
+                # Fetch the assistant message again (it might have been detached from the session)
+                assistant_msg = AssistantMessage.query.filter_by(message_id=message_id, output_number=1).first()
+                if assistant_msg:
+                    assistant_msg.content = "I'm sorry, an error occurred while processing your request."
+                    assistant_msg.search_output = json.dumps({
+                        "status": "error",
+                        "error": str(e)
+                    })
+                    assistant_msg.is_updating = False
+                    db.session.commit()
+            except Exception as nested_e:
+                print(f"Error saving error state: {nested_e}")
+
+@chat_blueprint.route("/chat/status/<string:message_id>")
+def message_status(message_id):
+    """
+    Get the current processing status of a message.
+    """
+    from models.models import AssistantMessage
+    
+    if "username" not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    # Get the message
+    assistant_msg = AssistantMessage.query.filter_by(message_id=message_id).first()
+    if not assistant_msg:
+        return jsonify({"status": "not_found"}), 404
+    
+    # Get current status
+    status = "completed"
+    processing_data = {}
+    
+    if assistant_msg.is_updating:
+        status = "processing"
+    
+    if assistant_msg.search_output:
+        try:
+            search_data = json.loads(assistant_msg.search_output)
+            if "status" in search_data:
+                status = search_data["status"]
+            processing_data = search_data
+        except:
+            pass
+    
+    # Return current status and data
+    return jsonify({
+        "status": status,
+        "message_id": assistant_msg.id,
+        "content": assistant_msg.content,
+        "critic_score": assistant_msg.critic_score,
+        "processing_data": processing_data
+    }), 200
