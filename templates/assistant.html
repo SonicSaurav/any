@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}Chat Interface{% endblock %}
+
+{% block name %}
+Assistant Chat
+{% endblock %}
+
+{% block content %}
+
+<!-- Chat Section -->
+<div id="chat-container">
+    <div id="messages"><!-- messages will be shown here --></div>
+
+    <div class="input-container">
+        <input id="user-input" type="text" placeholder="Input Message" class="text-input">
+        <button id="send-btn" class="send-button">Send</button>
+    </div>
+</div>
+
+<div class="right-panel">
+    <!-- Top-Right Panel -->
+    <div class="top-right-panel">
+        <button id="refresh-btn" class="button">Refresh Session</button>
+        <button id="end-btn" class="button">
+            <a href="/auth/logout" style="text-decoration: none">Logout</a>
+        </button>
+        <button id="sessions-btn" class="button">
+            <a href="/assistant/sessions" style="text-decoration: none">Previous Sessions</a>
+        </button>
+    </div>
+
+    <!-- Bottom-Right Panel -->
+    <div class="bottom-right-panel">
+        <div id="session-info">
+            <p>Chat ID: <span id="chat-id"></span></p>
+        </div>
+        <!-- Toggle for Second Assistant -->
+        <div class="mt-2">
+            <label for="second-assistant-toggle" class="mr-2">Enable Second Assistant</label>
+            <input type="checkbox" id="second-assistant-toggle" />
+        </div>
+    </div>
+</div>
+
+<script src="../static/assistant.js" type="module"></script>
+<link rel="stylesheet" href="../static/assistant.css" />
+{% endblock %}

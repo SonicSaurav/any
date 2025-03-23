@@ -1,0 +1,177 @@
+openapi: 3.0.0
+info:
+  title: Assistant Chat and Simulation API
+  description: API for a chat assistant application. The simulation part is to be written later.
+  version: 1.0.0
+servers:
+  - url: http://localhost:5000
+    description: Development server
+  - url: http://localhost:5591
+    description: Production server
+
+paths:
+  /auth/login:
+    post:
+      summary: User login
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+      responses:
+        "302":
+          description: Redirect to the home page on successful login
+        "200":
+          description: Render login page on failure
+
+  /auth/logout:
+    get:
+      summary: User logout
+      responses:
+        "302":
+          description: Redirect to login page
+
+  /assistant/chat/start:
+    post:
+      summary: Start a new chat session
+      responses:
+        "200":
+          description: Successfully created/reused a chat
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  chat_id:
+                    type: string
+        "401":
+          description: Unauthorized
+        "404":
+          description: User not found
+
+  /assistant/chat/{chat_id}:
+    get:
+      summary: Retrieve a chat session
+      parameters:
+        - name: chat_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Chat session retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+        "404":
+          description: Chat not found
+
+  /assistant/chat:
+    post:
+      summary: Send a message in a chat session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                chat_id:
+                  type: string
+                user_input:
+                  type: string
+      responses:
+        "200":
+          description: Message processed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+        "400":
+          description: No message provided
+        "401":
+          description: Unauthorized
+        "404":
+          description: Chat not found
+
+  /assistant/chat/score/{chat_id}:
+    post:
+      summary: Retrieve critic scores for a chat
+      parameters:
+        - name: chat_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Scores retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  scores:
+                    type: array
+                    items:
+                      type: number
+        "401":
+          description: Unauthorized
+        "404":
+          description: Chat not found
+
+  /assistant/chat/enable_second_assistant/{chat_id}:
+    post:
+      summary: Enable second assistant response in a chat
+      parameters:
+        - name: chat_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Second assistant enabled
+          content:
+            application/json:
+              schema:
+                type: object
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: Chat not found
+
+  /assistant/chat/disable_second_assistant/{chat_id}:
+    post:
+      summary: Disable second assistant response in a chat
+      parameters:
+        - name: chat_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Second assistant disabled
+          content:
+            application/json:
+              schema:
+                type: object
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden
+        "404":
+          description: Chat not found

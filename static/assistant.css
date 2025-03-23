@@ -1,0 +1,84 @@
+.buttons-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); /* Adjust button width */
+    gap: 1rem; /* Space between buttons */
+    width: 100%; /* Full width of the container */
+}
+
+/* Buttons */
+button {
+    background-color: white;
+    border: 1px solid #d1d5db; /* Light gray border */
+    color: #374151; /* Text gray */
+    padding: 0.75rem;
+    border-radius: 0.5rem; /* Rounded corners */
+    text-align: center;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background-color 0.2s ease-in-out;
+}
+
+button:hover {
+    background-color: #f3f4f6; /* Slightly darker gray on hover */
+}
+
+button a {
+    text-decoration: none;
+    color: inherit; /* Inherit text color from button */
+    display: block; /* Ensure the button is clickable */
+    text-align: center;
+}
+
+/* Session Info */
+.session-info {
+    text-align: center;
+    font-size: 1rem;
+    color: #374151; /* Gray text */
+}
+
+
+/* Button Styles */
+.button {
+    background-color: white;
+    border: 1px solid gray; /* Light gray border */
+    color: #374151; /* Text gray */
+    padding: 0.5rem 0.75rem; /* Reduced padding for smaller buttons */
+    border-radius: 0.5rem; /* Rounded corners */
+    text-align: center;
+    font-size: 0.875rem; /* Reduced font size */
+    cursor: pointer;
+    transition: background-color 0.2s ease-in-out;
+    min-width: 100px; /* Ensure buttons don’t get too small */
+    max-width: 150px; /* Limit the maximum button width */
+    display: inline-block;
+
+}
+
+.button:hover {
+    background-color: #f3f4f6; /* Slightly darker gray on hover */
+}
+
+.button a {
+    text-decoration: none;
+    color: inherit; /* Inherit text color from button */
+    display: block; /* Ensure the button is clickable */
+}
+
+/* Bottom-Right Panel: Info Section */
+.bottom-right-panel {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: #fff; /* Background for info bar */
+    border: 1px solid #d1d5db; /* Border for separation */
+    border-radius: 8px;
+    padding: 1rem;
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Session Info Text */
+#session-info {
+    font-size: 1rem;
+    color: #374151; /* Text color */
+}

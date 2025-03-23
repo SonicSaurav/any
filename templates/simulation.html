@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}Simulation Interface{% endblock %}
+
+{% block name %}
+    Simulation Interface
+{% endblock %}
+
+{% block content %}
+
+    <!-- Chat Section -->
+    <div id="chat-container"> 
+        <div id="messages"></div>
+    </div>
+
+    <div class="right-panel">
+        <div class="score-container">
+            <div id="critic-score"></div>
+            <p class="txt-lg">Critic Score</p>
+        </div>
+        <div class="buttons">
+            <button id="start-simulation" class="simulation-button">Start Simulation</button>
+            <button id="continue-simulation" class="simulation-button" style="display:none;">Continue Simulation</button>
+            <button id="end-simulation" class="simulation-button" style="display:none;">End Simulation</button>
+        </div>
+    </div>
+
+<script src="../static/simulation.js" type="module"></script>
+
+<style>
+    .buttons {
+        display: flex;
+        flex-direction: column; /* Stack buttons */
+        gap: 10px;
+        margin-top: 20px;
+    }
+
+    .simulation-button {
+        width: 100%;
+        padding: 10px;
+        border: none;
+        cursor: pointer;
+        font-size: 16px;
+        border-radius: 5px;
+        transition: background 0.3s;
+    }
+
+    #start-simulation { background: green; color: white; }
+    #continue-simulation { background: blue; color: white; }
+    #end-simulation { background: red; color: white; }
+
+    .simulation-button:hover { opacity: 0.8; }
+</style>
+
+{% endblock %}

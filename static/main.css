@@ -1,0 +1,283 @@
+html body {
+    height:100vh;
+    width: 100vw;
+    margin: 0;
+    padding: 0;
+    font-family: Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* Navbar */
+.navbar {
+    background-color: #181818;
+    color: white;
+    text-align: center;
+    font-size: 1.5rem;
+    padding: 1rem;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+main.container {
+    display: grid;
+    grid-template-columns: 75% 25%; /* Define proportions for the two children */
+    height: calc(100vh - 4rem); /* Full height minus the navbar */
+    gap: 1rem; /* Optional gap between the two columns */
+    padding: 1rem; /* Optional padding */
+    box-sizing: border-box; /* Ensure padding doesn't overflow */
+}
+
+
+
+#chat-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%; /* Full height of the grid cell */
+    background-color: #f0f0f0; /* Optional background for visualization */
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    overflow: hidden; /* Prevent content overflow */
+}
+
+.right-panel {
+    display: grid; /* Retain grid layout for top-right and bottom-right sections */
+    grid-template-rows: 2fr 1fr; /* Top and bottom sections */
+    height: 100%; /* Full height of the grid cell */
+    padding: 1rem;
+    gap: 1rem;
+    background-color: #f9f9f9; /* Optional background for visualization */
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    overflow: hidden; /* Prevent content overflow */
+}
+
+#messages {
+
+    flex: 1;
+    min-height: 0; /* CRUCIAL FIX to allow scrolling */
+    padding: 1rem;
+    overflow-y: auto; /* Enables vertical scrolling */
+    overflow-x: hidden; /* Prevents horizontal scroll */
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    justify-content: flex-start; /* Prevents auto-scrolling to bottom */
+    max-height: 100%; /* Ensures it does not exceed parent */
+}
+
+.user-message {
+    align-self: flex-end;
+    background-color: lightgray;
+    color: black;
+    padding: 0.75rem;
+    border-radius: 8px;
+    max-width: 75%;
+    word-wrap: break-word;
+
+}
+
+.assistant-message {
+    align-self: flex-start;
+    background-color: white;
+    border: 1px #1f1f1f solid;
+    color: rgb(66, 66, 66);
+    padding: 0.75rem;
+    border-radius: 8px;
+    max-width: 75%;
+    word-wrap: break-word;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+
+/* Top-Right Panel: Buttons Section */
+.top-right-panel {
+    background-color: white;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); /* Responsive grid */
+    gap: 1rem; /* Space between buttons */
+    align-content: flex-start; /* Align buttons to the top */
+    justify-items: stretch; /* Buttons take equal width */
+    overflow-y: auto; /* Enable vertical scrolling */
+    height: 100%; /* Ensure it fills the available space */
+    max-height: calc(100% - 2rem); /* Prevent it from exceeding the right-panel height */
+    padding: 1rem;
+    box-sizing: border-box; /* Ensure padding is included in the height */
+    border-radius: 8px;
+    overflow-y: auto; /* Enable vertical scrolling */
+}
+
+
+
+.score-container {
+    text-align: center;
+    margin: auto 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+
+}
+
+#critic-score {
+    width: 100px;
+    height: 100px;
+    background-color: black;
+    color: white;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 50%;
+    font-size: 2rem;
+    font-weight: bold;
+}
+
+.buttons {
+    height: 3rem;
+}
+
+.start-button, .end-button {
+    padding: 0.75rem 1rem;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    cursor: pointer;
+}
+
+.start-button {
+    background-color: white;
+    color: black;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    border: 1px solid #d1d5db; /* Equivalent to border-gray-300 */
+    border-radius: 8px;
+}
+
+.start-button:hover {
+    background-color: #f3f4f6;
+}
+
+.start-button:active {
+    transform: scale(0.95);
+}
+
+.end-button {
+    background-color: black;
+    color: white;
+}
+
+.end-button:hover {
+    background-color: #333;
+}
+
+.end-button:active {
+    transform: scale(0.95);
+}
+
+/* Input Container */
+.input-container {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    background-color: white;
+}
+
+/* Input Field */
+.text-input {
+    flex: 1;
+    padding: 0.5rem;
+    border: 1px solid #d1d5db; /* Equivalent to border-gray-300 */
+    border-radius: 8px;
+    outline: none;
+    transition: box-shadow 0.2s ease-in-out;
+}
+
+/* Focus effect */
+.text-input:focus {
+    box-shadow: 0 0 5px rgba(59, 130, 246, 0.5); /* Equivalent to focus:ring-blue-300 */
+}
+
+/* Button */
+.send-button {
+    background-color: #93c5fd; /* Equivalent to bg-blue-300 */
+    padding: 0.5rem 1rem;
+    border: none;
+    border-radius: 8px;
+    transition: transform 0.2s, background-color 0.2s ease-in-out;
+    cursor: pointer;
+}
+
+/* Hover and Active effects */
+.send-button:hover {
+    background-color: #60a5fa; /* Equivalent to hover:bg-blue-400 */
+}
+
+.send-button:active {
+    transform: scale(1.1); /* Equivalent to active:scale-110 */
+}
+
+.txt-lg {
+    font-size: 1.2rem; /* Equivalent to text-lg */
+    font-weight: bold;
+}
+
+/* For index page */
+/* Button Container */
+.home-container {
+    display: flex;
+    flex:1;
+    /* flex-direction: column; */
+    flex-direction: row;
+    align-items: center;
+    gap: 1.5rem; /* Space between the buttons */
+    justify-content: center;
+}
+
+.button {
+    background-color: white;
+    border: 1px solid gray; /* Light gray border */
+    color: #374151; /* Text gray */
+    padding: 0.5rem 0.75rem; /* Reduced padding for smaller buttons */
+    border-radius: 0.5rem; /* Rounded corners */
+    text-align: center;
+    font-size: 0.875rem; /* Reduced font size */
+    cursor: pointer;
+    transition: background-color 0.2s ease-in-out;
+    min-width: 100px; /* Ensure buttons don’t get too small */
+    max-width: 150px; /* Limit the maximum button width */
+    display: inline-block;
+    margin:1rem;
+
+
+}
+
+
+.button:hover {
+    transform: scale(1.05);
+}
+
+.button:active {
+    transform: scale(0.95);
+}
+
+/* Black Button */
+.black-button {
+    background-color: black;
+    color: white;
+}
+
+.black-button:hover {
+    background-color: #333;
+}
+/* White Button */
+.white-button {
+    background-color: white;
+    color: black;
+    border: 2px solid black;
+}
+
+.white-button:hover {
+    background-color: #f3f4f6;
+}
+
+

@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}Chat Interface{% endblock %}
+
+{% block name %}
+Assistant Chat - Chat ID <span id="chat-id"></span>
+{% endblock %}
+
+{% block content %}
+
+
+<!-- Chat Section -->
+<div id="chat-container">
+    <div id="messages">
+        <!-- messages will be shown here -->
+    </div>
+
+</div>
+
+<!-- <div class="right-panel items-space-between"> -->
+<div class="right-panel">
+    <div class="top-right-pannel">
+        {% for session in sessions %}
+        <button class="button">Session {{session.id}}</button>
+        {% endfor %}
+    </div>
+    <!-- <div class="bottom-right-panel">
+        <div id="session-info">
+            <p>Chat ID: <span id="chat-id"></span></p>
+        </div>
+    </div> -->
+    <!-- TODO: move this to navbar -->
+
+</div>
+
+<script src="../static/sessions.js" type="module"></script>
+
+{% endblock %}
